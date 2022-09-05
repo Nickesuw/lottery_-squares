@@ -1,21 +1,19 @@
 int xor(int a, int b) asm "XOR";
-
 tuple new_tuple() asm "0 TUPLE";
 int index(tuple arr, int index) asm "INDEXVAR";
 (tuple, ()) ~set(tuple arr, int value, int index) asm "SETINDEXVAR";
-
 () randomize_cell(cell x) impure asm "HASHCU ADDRAND";
 (int) random_old(cell x) asm "HASHCU RANDSEED XOR";
-
 int get_grams_balance() asm "BALANCE FIRST";
+int get_balance_() asm "BALANCE";
 
 int bits_count(int number) {
 	var res = 0;
-  	while (number){
+	  while (number){
 		number = number & ( number - 1 );
 		res += 1;
-  	}
-  	return res;
+	  }
+	  return res;
 }
 
 () send_grams(slice addr, int grams, int mode) impure {
@@ -24,7 +22,7 @@ int bits_count(int number) {
 		.store_slice(addr)
 		.store_grams(grams)
 		.store_uint(0, 107)
-		.end_cell()	, mode);
+		.end_cell(), mode);
 }
 
 () send_out(int square_price, cell players_cell, int final_hash) impure {
@@ -34,7 +32,7 @@ int bits_count(int number) {
 		.store_uint(square_price, 64)
 		.store_ref(players_cell)
 		.store_uint(final_hash, 256)
-		.end_cell()	, 3);
+		.end_cell(), 3);
 }
 
 (builder, ()) ~store_base_info(builder ds, int seqno, int subid, int public_key){
@@ -50,7 +48,6 @@ int bits_count(int number) {
 	ds~store_uint(squares_free, 64);
 	return (ds.store_ref(players_list), ());
 }
-
 (int, int, int) preload_base_info(slice ds){
 	return (
 		ds~load_uint(32),
@@ -81,7 +78,7 @@ int bits_count(int number) {
 	
 	throw_if(37, end_time < now());
 	
-	int squares_ordered = msg_body~load_uint(64);	
+	int squares_ordered = msg_body~load_uint(64);
 	slice address = msg_body.preload_bits(264);
 	int squares_buyed = squares_ordered & squares_free;
 	squares_free = xor(squares_free, squares_buyed); 
@@ -93,15 +90,14 @@ int bits_count(int number) {
 	
 	int balance = msg_value - total_price;
 	
-	throw_if(35, balance < 0);	
-
+	throw_if(35, balance < 0);
 	if (squares_ordered != squares_buyed) {
 		send_grams(address, balance, 2);
 	}
-
-    if (squares_buyed_count > 30) {
-        return();
-    }
+	
+	if (squares_buyed_count > 30) {
+		return();
+	}
 	
 	players_list = begin_cell()
 		.store_uint(squares_buyed, 64)
@@ -117,14 +113,11 @@ int bits_count(int number) {
 		.store_uint(square_price, 64)
 		.store_uint(squares_free, 64)
 		.end_cell());
-
-	return();	
+	return();
 }
-
 int get_prize_size(tuple prizes, int square_price, int squares) {
 	int prize = 0;
 	int i = 0;
-
 	while (squares) {
 		if (squares & 1){
 			prize += prizes.index(i);
@@ -135,17 +128,7 @@ int get_prize_size(tuple prizes, int square_price, int squares) {
 	return muldivr(square_price, prize, 100);
 }
 
-int get_amount() method_id {
-    (int stored_seqno, int pubkey, int order_seqno, int number_of_wins, int incoming_amount, int outgoing_amount, int owner_wc, int owner_account_id, cell orders) = unpack_state();
-    return incoming_amount;
-}
-
 tuple create_multipliers() impure {
-
-    int square_price = ds~load_uint(64);
-	cell players_cell = ds.preload_ref();
-	int final_hash = random_old(players_cell); 
-
 	var arr = new_tuple();
 	int i = 0;
 	repeat (16) {
@@ -154,7 +137,7 @@ tuple create_multipliers() impure {
 	}
 	return arr;
 }
-
+		
 tuple create_prize_multipliers (int hash) impure {
 	int main_winner = 0;
 	var arr = new_tuple();
@@ -171,7 +154,7 @@ tuple create_prize_multipliers (int hash) impure {
 	arr~set( arr.index(main_winner) + 1000, main_winner);
 	return arr;
 }
-
+		
 () game_end (slice ds, slice base_info) impure {
 	int square_price = ds~load_uint(64);
 	cell players_cell = ds.preload_ref();
@@ -200,20 +183,18 @@ tuple create_prize_multipliers (int hash) impure {
 		.store_uint(final_hash, 256)
 		.end_cell());
 }
-
 () recv_external(slice in_msg) impure {
+	
 	slice ds = get_data().begin_parse();
 	
 	slice base_info = ds~load_bits(320);
 	int status = ds~load_uint(4);
-
 	if (status == 0) { ;; game not started
 		var signature = in_msg~load_bits(512);
 	
 		var cs = in_msg;
- 		int msg_subid = cs~load_uint(32);
+		 int msg_subid = cs~load_uint(32);
 		int msg_seqno = cs~load_uint(32);
-
 		var (stored_seqno, stored_subid, public_key)
 			= base_info.preload_base_info();
 		
@@ -226,17 +207,14 @@ tuple create_prize_multipliers (int hash) impure {
 		new_ds~store_base_info(stored_seqno + 1, stored_subid, public_key);
 				
 		cs~touch();
-
 		if (cs.slice_refs_empty?()){
 			;; start the game
 			int endgame_time = cs~load_uint(32);
 			int square_price = cs.preload_uint(64);
-
 			int reserve_balance = square_price * 116;
 			int current_balance = get_grams_balance();
 			throw_if(36, reserve_balance > current_balance);
-
-			new_ds~store_uint(1, 4);	
+			new_ds~store_uint(1, 4);
 			new_ds~store_game_state( endgame_time, square_price, (1 << 64) - 1, begin_cell().end_cell() );
 		} else {
 			;; send grams
@@ -245,17 +223,13 @@ tuple create_prize_multipliers (int hash) impure {
 				send_raw_message(cs.preload_ref(), mode);
 			}
 			new_ds~store_uint(0, 4);
-		}	
-		set_data(new_ds.end_cell());		
-  	} 
-      else {
+		}
+		set_data(new_ds.end_cell());
+	  } else {
 		int endgame_time = ds~load_uint(32);
 		throw_unless(37, endgame_time < (now() - 60) );
-		accept_message();	
-		ds.game_end(base_info);		
+		accept_message();
+		ds.game_end(base_info);
 	}
 }
 
-;;tuple seqno() method_id {
-;;	return triple(get_data().begin_parse().preload_base_info());
-;;}
