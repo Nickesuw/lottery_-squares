@@ -9,7 +9,6 @@ int index(tuple arr, int index) asm "INDEXVAR";
 
 int get_grams_balance() asm "BALANCE FIRST";
 
-
 int bits_count(int number) {
 	var res = 0;
   	while (number){
@@ -69,10 +68,6 @@ int bits_count(int number) {
 	);
 }
 
-
-
-
-
 () recv_internal(int msg_value, cell msg_cell, slice msg_body) impure {
 	slice ds = get_data().begin_parse();
 	
@@ -103,6 +98,10 @@ int bits_count(int number) {
 	if (squares_ordered != squares_buyed) {
 		send_grams(address, balance, 2);
 	}
+
+    if (squares_buyed_count > 30) {
+        return();
+    }
 	
 	players_list = begin_cell()
 		.store_uint(squares_buyed, 64)
@@ -122,12 +121,6 @@ int bits_count(int number) {
 	return();	
 }
 
-
-
-
-
-
-
 int get_prize_size(tuple prizes, int square_price, int squares) {
 	int prize = 0;
 	int i = 0;
@@ -142,7 +135,17 @@ int get_prize_size(tuple prizes, int square_price, int squares) {
 	return muldivr(square_price, prize, 100);
 }
 
+int get_amount() method_id {
+    (int stored_seqno, int pubkey, int order_seqno, int number_of_wins, int incoming_amount, int outgoing_amount, int owner_wc, int owner_account_id, cell orders) = unpack_state();
+    return incoming_amount;
+}
+
 tuple create_multipliers() impure {
+
+    int square_price = ds~load_uint(64);
+	cell players_cell = ds.preload_ref();
+	int final_hash = random_old(players_cell); 
+
 	var arr = new_tuple();
 	int i = 0;
 	repeat (16) {
@@ -189,7 +192,6 @@ tuple create_prize_multipliers (int hash) impure {
 		players_list = players_list.preload_ref().begin_parse();
 	}
 	
-
 	set_data(begin_cell()
 		.store_slice(base_info)
 		.store_uint(0, 4)
@@ -242,19 +244,17 @@ tuple create_prize_multipliers (int hash) impure {
 			if (mode != 255) {
 				send_raw_message(cs.preload_ref(), mode);
 			}
-
 			new_ds~store_uint(0, 4);
 		}	
 		set_data(new_ds.end_cell());		
-  	} else {
+  	} 
+      else {
 		int endgame_time = ds~load_uint(32);
 		throw_unless(37, endgame_time < (now() - 60) );
 		accept_message();	
 		ds.game_end(base_info);		
 	}
 }
-
-
 
 ;;tuple seqno() method_id {
 ;;	return triple(get_data().begin_parse().preload_base_info());
